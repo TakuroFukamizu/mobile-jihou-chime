@@ -92,10 +92,20 @@ void setup() {
 
   // setup RTC ( NTP auto setting )
   configTzTime(NTP_TIMEZONE, NTP_SERVER1, NTP_SERVER2, NTP_SERVER3);
-
-  //Init WiFi as Station, start SmartConfig
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.beginSmartConfig();
+  
+  M5.Log.print("WiFi: ");
+  for (int i = 20; i && WiFi.status() != WL_CONNECTED; --i) {
+    M5.Log.print(".");
+    M5.delay(500);
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    M5.Log.println("Connected.");
+  } else {
+    //Init WiFi as Station, start SmartConfig
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.beginSmartConfig();
+    M5.Log.println("Not connected.\r\nSmartConfig ON.");
+  }
 
   setupRtcByWifi();
   
@@ -215,7 +225,7 @@ unsigned long getTime() {
 void setupRtcByWifi() {
   M5.Display.clear();
   M5.Display.setCursor(0,0);
-  
+
   M5.Log.print("WiFi:");
   for (int i = 20; i && WiFi.status() != WL_CONNECTED; --i) {
     M5.Log.print(".");
