@@ -7,6 +7,7 @@
  */
 
 #include <WiFi.h>
+#include <WiFiMulti.h>
 
 // Different versions of the framework have different SNTP header file names and availability.
 #if __has_include (<esp_sntp.h>)
@@ -25,6 +26,8 @@
 #include <SD.h>
 #include <EspEasyTask.h>
 #include "env.h"
+
+#define MAX_WIFI_TRY 20
 
 //-------------------------------
 
@@ -67,7 +70,7 @@ EspEasyTask ntpSyncTask;
 
 unsigned long getTime();
 
-void setupRtcByWifi();
+void setupRtcByWifi(bool init);
 bool playFile(const char* filename);
 
 void jihouTaskFunc();
@@ -94,12 +97,13 @@ void setup() {
   configTzTime(NTP_TIMEZONE, NTP_SERVER1, NTP_SERVER2, NTP_SERVER3);
   
   M5.Log.print("WiFi: ");
-  for (int i = 20; i && WiFi.status() != WL_CONNECTED; --i) {
+  for (int i = MAX_WIFI_TRY; i && WiFi.status() != WL_CONNECTED; --i) {
     M5.Log.print(".");
     M5.delay(500);
   }
   if (WiFi.status() == WL_CONNECTED) {
     M5.Log.println("Connected.");
+    setupRtcByWifi(false);
   } else {
     //Init WiFi as Station, start SmartConfig
     WiFi.mode(WIFI_AP_STA);
@@ -107,8 +111,6 @@ void setup() {
     M5.Log.println("Not connected.\r\nSmartConfig ON.");
   }
 
-  setupRtcByWifi();
-  
   // setup SPK module
   auto spkCfg = M5.Speaker.config();
   M5.Speaker.config(spkCfg);
@@ -175,7 +177,7 @@ void loop(void) {
   M5.Log.printf("時報: %s\r\n", M5.Speaker.isPlaying() ? "実行" : "停止");
 
   if (M5.BtnA.wasDoubleClicked()) { // force NTP sync
-    setupRtcByWifi();
+    setupRtcByWifi(true);
   }
 }
 
@@ -204,7 +206,7 @@ void ntpSyncTaskFunc() {
       M5.delay(1000);
       continue;
     }
-    setupRtcByWifi();
+    setupRtcByWifi(true);
     M5.delay(1000);
   }
 }
@@ -222,14 +224,18 @@ unsigned long getTime() {
   return now;
 }
 
-void setupRtcByWifi() {
-  M5.Display.clear();
-  M5.Display.setCursor(0,0);
-
-  M5.Log.print("WiFi:");
-  for (int i = 20; i && WiFi.status() != WL_CONNECTED; --i) {
-    M5.Log.print(".");
-    M5.delay(500);
+void setupRtcByWifi(bool init) {
+  if (init) {
+    M5.Display.clear();
+    M5.Display.setCursor(0,0);
+  }
+  // try to connect if not connected yet.
+  if (WiFi.status() != WL_CONNECTED) {
+    M5.Log.print("WiFi:");
+    for (int i = MAX_WIFI_TRY; i && WiFi.status() != WL_CONNECTED; --i) {
+      M5.Log.print(".");
+      M5.delay(500);
+    }
   }
   if (WiFi.status() == WL_CONNECTED) {
     M5.Log.println("\r\nWiFi Connected.");
@@ -245,7 +251,7 @@ void setupRtcByWifi() {
     struct tm timeInfo;
     while (!getLocalTime(&timeInfo, 1000)){
       M5.Log.print('.');
-    };
+    }
 #endif
     M5.Log.println("\r\nNTP Connected.");
 
@@ -259,7 +265,7 @@ void setupRtcByWifi() {
   }
 
   // WiFi.disconnect(true);
-  M5.Display.clear();
+  if (init) M5.Display.clear();
 }
 
 //-------------------------------
